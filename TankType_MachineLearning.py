@@ -68,8 +68,9 @@ model.fit(X_train, y_train, epochs=10, batch_size=32)
 
 # Predict classes for new images
 # Can switch image by changing name of the picture from the folder Test Images
-#RU_LI_1.png as one of the examples
-img_path = r'C:\Users\skyla\Desktop\Python WWII Tank Type\Test Images\REAL_1.jpg'
+#REAL_1.jpg as one of the examples
+#RU_LI_1.png
+img_path = r'C:\Users\skyla\Desktop\Python WWII Tank Type\Test Images\RU_ART_1.png'
 img = load_img(img_path, target_size=(224, 224))
 x = image.img_to_array(img)
 x = np.expand_dims(x, axis=0)
