@@ -1,3 +1,5 @@
+import keras.utils as image
+from keras.utils import load_img, img_to_array
 import os
 import numpy as np
 import keras
@@ -5,10 +7,9 @@ from keras.preprocessing import image
 from keras.applications.vgg16 import VGG16
 from keras.applications.vgg16 import preprocess_input
 from keras.models import Model
-import keras.utils as image
 from keras.layers import Dense, GlobalAveragePooling2D
 from keras.utils import to_categorical
-from keras.utils import load_img, img_to_array
+from keras.optimizers import Adam
 
 # Define the number of classes
 num_classes = 5
@@ -29,19 +30,19 @@ model = Model(inputs=base_model.input, outputs=predictions)
 for layer in base_model.layers:
     layer.trainable = False
 
-# Compile the model
-model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
+# Compile the model with a low learning rate to avoid overfitting
+adam = Adam(lr=0.001)
+model.compile(optimizer=adam, loss='categorical_crossentropy', metrics=['accuracy'])
 
 # Load images and labels from a folder
 X_train = []
 y_train = []
 
-folder = r'C:\Users\skyla\Desktop\Python WWII Tank Type\Example Images'
+folder = r'C:\Users\skyla\Desktop\GitHub Code\TankType_MachineLearning\Example Images'
 for i, filename in enumerate(os.listdir(folder)):
     img_path = os.path.join(folder, filename)
-    #image.load_img
     img = load_img(img_path, target_size=(224, 224))
-    x = image.img_to_array(img)
+    x = img_to_array(img)
     x = np.expand_dims(x, axis=0)
     x = preprocess_input(x)
     X_train.append(x)
@@ -62,6 +63,15 @@ y_train = np.array(y_train)
 # Convert the labels into one-hot encoded format
 y_train = to_categorical(y_train, num_classes)
 
+# Train the model on your data using data augmentation
+data_gen = image.ImageDataGenerator(
+    rotation_range=30,
+    width_shift_range=0.2,
+    height_shift_range=0.2,
+    horizontal_flip=True,
+    vertical_flip=False
+)
+
 # Train the model on your data
 #EPOCHS is number of tries model can train (initially 10)
 model.fit(X_train, y_train, epochs=10, batch_size=32)
@@ -70,9 +80,9 @@ model.fit(X_train, y_train, epochs=10, batch_size=32)
 # Can switch image by changing name of the picture from the folder Test Images
 #REAL_1.jpg as one of the examples
 #RU_LI_1.png
-img_path = r'C:\Users\skyla\Desktop\Python WWII Tank Type\Test Images\RU_ART_1.png'
+img_path = r'C:\Users\skyla\Desktop\GitHub Code\TankType_MachineLearning\Test Images\RU_HEA_1.png'
 img = load_img(img_path, target_size=(224, 224))
-x = image.img_to_array(img)
+x = img_to_array(img)
 x = np.expand_dims(x, axis=0)
 x = preprocess_input(x)
 preds = model.predict(x)
@@ -99,7 +109,7 @@ while True:
         # Update the path to a new image
         img_path = input("Enter the path to a new image:")
         img = load_img(img_path, target_size=(224, 224))
-        x = image.img_to_array(img)
+        x = img_to_array(img)
         x = np.expand_dims(x, axis=0)
         x = preprocess_input(x)
         preds = model.predict(x)
