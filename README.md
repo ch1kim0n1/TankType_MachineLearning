@@ -6,62 +6,6 @@ This directory contains the raw dataset for training, validating, and testing a 
 
 The dataset is organized into three main folders: `train`, `val`, and `test`. Each of these folders contains subdirectories for each tank class. The subdirectories are named according to the type of tank and contain the respective images.
 
-data/
-raw/
-light/
-light1.jpg
-light2.jpg
-...
-middle/
-middle1.jpg
-middle2.jpg
-...
-heavy/
-heavy1.jpg
-heavy2.jpg
-...
-anti_tank/
-anti_tank1.jpg
-anti_tank2.jpg
-...
-artillery/
-artillery1.jpg
-artillery2.jpg
-...
-train/
-light/
-(training images)
-middle/
-(training images)
-heavy/
-(training images)
-anti_tank/
-(training images)
-artillery/
-(training images)
-val/
-light/
-(validation images)
-middle/
-(validation images)
-heavy/
-(validation images)
-anti_tank/
-(validation images)
-artillery/
-(validation images)
-test/
-light/
-(test images)
-middle/
-(test images)
-heavy/
-(test images)
-anti_tank/
-(test images)
-artillery/
-(test images)
-
 ## Instructions:
 
 1. **Raw Data Preparation**:
