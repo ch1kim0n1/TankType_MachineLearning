@@ -1,117 +1,101 @@
-import keras.utils as image
-from keras.utils import load_img, img_to_array
-import os
-import numpy as np
-import keras
-from keras.preprocessing import image
-from keras.applications.vgg16 import VGG16
-from keras.applications.vgg16 import preprocess_input
-from keras.models import Model
-from keras.layers import Dense, GlobalAveragePooling2D
-from keras.utils import to_categorical
-from keras.optimizers import Adam
+import torch
+import torch.nn as nn
+import torch.optim as optim
+from torch.utils.data import DataLoader
+from torchvision import datasets, transforms, models
+from PIL import Image
 
-# Define the number of classes
-num_classes = 5
+# Define transformations
+transform = transforms.Compose([
+    transforms.Resize((128, 128)),
+    transforms.ToTensor(),
+    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+])
 
-# Load the pre-trained VGG16 model without the top layer
-base_model = VGG16(weights='imagenet', include_top=False)
+# Load dataset
+train_data = datasets.ImageFolder('data/train', transform=transform)
+val_data = datasets.ImageFolder('data/val', transform=transform)
+test_data = datasets.ImageFolder('data/test', transform=transform)
 
-# Add a new top layer for classification
-x = base_model.output
-x = GlobalAveragePooling2D()(x)
-x = Dense(1024, activation='relu')(x)
-predictions = Dense(num_classes, activation='softmax')(x)
+train_loader = DataLoader(train_data, batch_size=32, shuffle=True)
+val_loader = DataLoader(val_data, batch_size=32, shuffle=False)
+test_loader = DataLoader(test_data, batch_size=32, shuffle=False)
 
-# Define the final model
-model = Model(inputs=base_model.input, outputs=predictions)
+# Load a pre-trained model and modify the final layer
+model = models.resnet18(pretrained=True)
+num_ftrs = model.fc.in_features
+model.fc = nn.Linear(num_ftrs, 5)  # 5 classes: light, middle, heavy, anti-tank, artillery
 
-# Freeze all layers of the pre-trained model
-for layer in base_model.layers:
-    layer.trainable = False
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+model = model.to(device)
 
-# Compile the model with a low learning rate to avoid overfitting
-adam = Adam(lr=0.001)
-model.compile(optimizer=adam, loss='categorical_crossentropy', metrics=['accuracy'])
+criterion = nn.CrossEntropyLoss()
+optimizer = optim.Adam(model.parameters(), lr=0.001)
 
-# Load images and labels from a folder
-X_train = []
-y_train = []
+# Training loop
+num_epochs = 10
+for epoch in range(num_epochs):
+    model.train()
+    running_loss = 0.0
+    for inputs, labels in train_loader:
+        inputs, labels = inputs.to(device), labels.to(device)
 
-folder = r'C:\Users\skyla\Desktop\GitHub Code\TankType_MachineLearning\Example Images'
-for i, filename in enumerate(os.listdir(folder)):
-    img_path = os.path.join(folder, filename)
-    img = load_img(img_path, target_size=(224, 224))
-    x = img_to_array(img)
-    x = np.expand_dims(x, axis=0)
-    x = preprocess_input(x)
-    X_train.append(x)
-    if "Light" in filename:
-        y_train.append(0)
-    elif "Middle" in filename:
-        y_train.append(1)
-    elif "Heavy" in filename:
-        y_train.append(2)
-    elif "Anti" in filename:
-        y_train.append(3)
-    elif "Artillery" in filename:
-        y_train.append(4)
+        optimizer.zero_grad()
+        outputs = model(inputs)
+        loss = criterion(outputs, labels)
+        loss.backward()
+        optimizer.step()
 
-X_train = np.vstack(X_train)
-y_train = np.array(y_train)
+        running_loss += loss.item()
 
-# Convert the labels into one-hot encoded format
-y_train = to_categorical(y_train, num_classes)
+    print(f"Epoch [{epoch+1}/{num_epochs}], Loss: {running_loss/len(train_loader)}")
 
-# Train the model on your data using data augmentation
-data_gen = image.ImageDataGenerator(
-    rotation_range=30,
-    width_shift_range=0.2,
-    height_shift_range=0.2,
-    horizontal_flip=True,
-    vertical_flip=False
-)
+    # Validate the model
+    model.eval()
+    val_loss = 0.0
+    correct = 0
+    total = 0
+    with torch.no_grad():
+        for inputs, labels in val_loader:
+            inputs, labels = inputs.to(device), labels.to(device)
+            outputs = model(inputs)
+            loss = criterion(outputs, labels)
+            val_loss += loss.item()
+            _, predicted = torch.max(outputs.data, 1)
+            total += labels.size(0)
+            correct += (predicted == labels).sum().item()
 
-# Train the model on your data
-#EPOCHS is number of tries model can train (initially 10)
-model.fit(X_train, y_train, epochs=10, batch_size=32)
+    print(f"Validation Loss: {val_loss/len(val_loader)}, Accuracy: {100 * correct / total}%")
 
-# Predict classes for new images
-# Can switch image by changing name of the picture from the folder Test Images
-#REAL_1.jpg as one of the examples
-#RU_LI_1.png
-img_path = r'C:\Users\skyla\Desktop\GitHub Code\TankType_MachineLearning\Test Images\RU_HEA_1.png'
-img = load_img(img_path, target_size=(224, 224))
-x = img_to_array(img)
-x = np.expand_dims(x, axis=0)
-x = preprocess_input(x)
-preds = model.predict(x)
+# Test the model
+model.eval()
+test_loss = 0.0
+correct = 0
+total = 0
+with torch.no_grad():
+    for inputs, labels in test_loader:
+        inputs, labels = inputs.to(device), labels.to(device)
+        outputs = model(inputs)
+        loss = criterion(outputs, labels)
+        test_loss += loss.item()
+        _, predicted = torch.max(outputs.data, 1)
+        total += labels.size(0)
+        correct += (predicted == labels).sum().item()
 
+print(f"Test Loss: {test_loss/len(test_loader)}, Accuracy: {100 * correct / total}%")
 
-while True:
-    # Print the class with the highest probability
-    class_index = np.argmax(preds[0])
-    if class_index == 0:
-        print("Light Tank")
-    elif class_index == 1:
-        print("Middle Tank")
-    elif class_index == 2:
-        print("Heavy Tank")
-    elif class_index == 3:
-        print("Anti Tank")
-    elif class_index == 4:
-        print("Artillery")
-    user_input = input("Is the prediction correct? (y/n)")
+# Function for predicting the class of a single image
+def predict_image(image_path, model, transform):
+    image = Image.open(image_path)
+    image = transform(image).unsqueeze(0).to(device)
+    model.eval()
+    with torch.no_grad():
+        outputs = model(image)
+        _, predicted = torch.max(outputs.data, 1)
+    return predicted.item()
 
-    if user_input == 'y':
-        break
-    elif user_input == 'n':
-        # Update the path to a new image
-        img_path = input("Enter the path to a new image:")
-        img = load_img(img_path, target_size=(224, 224))
-        x = img_to_array(img)
-        x = np.expand_dims(x, axis=0)
-        x = preprocess_input(x)
-        preds = model.predict(x)
-    else:
-        print("Invalid input. Please enter 'y' or 'n'.")
+# Example usage
+image_path = 'path/to/image.jpg'
+class_names = ['light', 'middle', 'heavy', 'anti_tank', 'artillery']
+predicted_class = predict_image(image_path, model, transform)
+print(f"Predicted class: {class_names[predicted_class]}")
